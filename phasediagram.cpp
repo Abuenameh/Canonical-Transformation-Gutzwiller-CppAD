@@ -20,7 +20,16 @@ using namespace boost::posix_time;
 
 using namespace nlopt;
 
-#include "casadi.hpp"
+#include <cppad/cppad.hpp>
+using CppAD::thread_alloc;
+using CppAD::parallel_ad;
+using CppAD::CheckSimpleVector;
+using CppAD::one_element_std_set;
+using CppAD::two_element_std_set;
+
+
+//#include "casadi.hpp"
+#include "cppad.hpp"
 #include "gutzwiller.hpp"
 #include "mathematica.hpp"
 
@@ -146,7 +155,28 @@ vector<double> norm(vector<double>& x) {
 //    GroundStateProblem& prob;
 //};
 
-void phasepoints(Parameter& xi, double theta, queue<Point>& points, vector<PointResults>& pres, progress_display& progress) {
+bool parallel = false;
+
+bool in_parallel() {
+    return parallel;
+}
+
+class thread_id {
+public:
+    int id;
+
+    thread_id(int i) : id(i) {
+    }
+};
+
+boost::thread_specific_ptr<thread_id> tls;
+
+size_t thread_num() {
+    return tls->id;
+}
+
+void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, vector<PointResults>& pres, progress_display& progress) {
+    tls.reset(new thread_id(thread));
 
     int ndim = 2 * L * dim;
 
@@ -181,7 +211,8 @@ void phasepoints(Parameter& xi, double theta, queue<Point>& points, vector<Point
 
     double scale = 1;
 
-    GroundStateProblem* prob;
+//    GroundStateProblem* prob;
+    GroundStateProblem prob;
     opt lopt(LD_LBFGS, ndim);
 //    opt lopt(LN_SBPLX, ndim);
     //    opt lopt(LD_CCSAQ, ndim);
@@ -191,18 +222,18 @@ void phasepoints(Parameter& xi, double theta, queue<Point>& points, vector<Point
     //    int npop = 20;
     {
         boost::mutex::scoped_lock lock(problem_mutex);
-        prob = new GroundStateProblem();
+//        prob = new GroundStateProblem();
 
         lopt.set_lower_bounds(-1);
         lopt.set_upper_bounds(1);
-        lopt.set_min_objective(energyfunc, prob);
+        lopt.set_min_objective(energyfunc, &prob);
 //        lopt.set_ftol_abs(1e-14);
 //        lopt.set_ftol_rel(1e-16);
 //        lopt.set_xtol_abs(1e-30);
 //        lopt.set_xtol_rel(1e-16);
         gopt.set_lower_bounds(-1);
         gopt.set_upper_bounds(1.1);
-        gopt.set_min_objective(energyfunc, prob);
+        gopt.set_min_objective(energyfunc, &prob);
         gopt.set_maxtime(120);
         //                lopt.set_maxtime(120);
         //                lopt.set_ftol_abs(1e-17);
@@ -262,40 +293,45 @@ void phasepoints(Parameter& xi, double theta, queue<Point>& points, vector<Point
         xth = xrand;
         x2th = xrand;
 
-        prob->setParameters(U0, dU, J, point.mu / scale);
+//        prob->setParameters(U0, dU, J, point.mu / scale);
+        prob.setParameters(U0, dU, J, point.mu / scale, 0);
 
         //        generate(x0.begin(), x0.end(), randx);
         //        generate(xth.begin(), xth.end(), randx);
         //        generate(x2th.begin(), x2th.end(), randx);
 
-        prob->setTheta(0);
+//        prob->setTheta(0);
 
         double E0;
         string result0;
         try {
-            prob->start();
+            prob.start();
+//            prob->start();
             //            population pop0(eprob, npop);
             //            algo.evolve(pop0);
             //            E0 = pop0.champion().f[0];
             //            x0 = pop0.champion().x;
 //                        result gres = gopt.optimize(x0, E0);
             result res = lopt.optimize(x0, E0);
-            prob->stop();
+//            prob->stop();
+            prob.stop();
             result0 = to_string(res);
             //            E0 = prob->solve(x0);
         }
         catch (std::exception& e) {
-            prob->stop();
+//            prob->stop();
+            prob.stop();
             result res = lopt.last_optimize_result();
             result0 = to_string(res) + ": " + e.what();
-            printf("Ipopt failed for E0 at %f, %f\n", point.x, point.mu);
+            printf("nlopt failed for E0 at %f, %f\n", point.x, point.mu);
             cout << e.what() << endl;
             E0 = numeric_limits<double>::quiet_NaN();
         }
         //        cout << ::math(x0) << endl;
         pointRes.status0 = result0;
         //        pointRes.status0 = prob->getStatus();
-        pointRes.runtime0 = prob->getRuntime();
+//        pointRes.runtime0 = prob->getRuntime();
+        pointRes.runtime0 = prob.getRuntime();
 
         norms = norm(x0);
         for (int i = 0; i < L; i++) {
@@ -315,11 +351,11 @@ void phasepoints(Parameter& xi, double theta, queue<Point>& points, vector<Point
         pointRes.f0 = x0;
         pointRes.E0 = E0;
         
-        pointRes.Eth = numeric_limits<double>::infinity();
+//        pointRes.Eth = numeric_limits<double>::infinity();
 
-        double count = 0;
-        for (int j = 0; j < 1; j++) {
-            count = j;
+//        double count = 0;
+//        for (int j = 0; j < 1; j++) {
+//            count = j;
 
             //        for (int thi = 0; thi < 10; thi++) {
 
@@ -331,36 +367,41 @@ void phasepoints(Parameter& xi, double theta, queue<Point>& points, vector<Point
 //                copy(x0.begin(), x0.end(), x2th.begin());
 //            }
 
-            prob->setTheta(theta);
+//            prob->setTheta(theta);
+        prob.setParameters(U0, dU, J, point.mu / scale, theta);
 
-    for (int i = 0; i < ndim; i++) {
-        xth[i] = xuni(xrng);
-    }
+//    for (int i = 0; i < ndim; i++) {
+//        xth[i] = xuni(xrng);
+//    }
             double Eth;
             string resultth;
             try {
-                prob->start();
+//                prob->start();
+                prob.start();
                 //            population popth(eprob, npop);
                 //            algo.evolve(popth);
                 //            Eth = popth.champion().f[0];
                 //            xth = popth.champion().x;
                 //                result gres = gopt.optimize(xth, Eth);
                 result res = lopt.optimize(xth, Eth);
-                prob->stop();
+//                prob->stop();
+                prob.stop();
                 resultth = to_string(res);
                 //            Eth = prob->solve(xth);
             }
             catch (std::exception& e) {
-                prob->stop();
+//                prob->stop();
+                prob.stop();
                 result res = lopt.last_optimize_result();
                 resultth = to_string(res) + ": " + e.what();
-                printf("Ipopt failed for Eth at %f, %f\n", point.x, point.mu);
+                printf("nlopt failed for Eth at %f, %f\n", point.x, point.mu);
                 cout << e.what() << endl;
                 Eth = numeric_limits<double>::quiet_NaN();
             }
             pointRes.statusth = resultth;
             //        pointRes.statusth = prob->getStatus();
-            pointRes.runtimeth = prob->getRuntime();
+//            pointRes.runtimeth = prob->getRuntime();
+            pointRes.runtimeth = prob.getRuntime();
 
             norms = norm(xth);
             for (int i = 0; i < L; i++) {
@@ -387,7 +428,8 @@ void phasepoints(Parameter& xi, double theta, queue<Point>& points, vector<Point
 //            cout << endl;
 
             pointRes.fth = xth;
-            pointRes.Eth = min(pointRes.Eth, Eth);
+            pointRes.Eth = Eth;
+//            pointRes.Eth = min(pointRes.Eth, Eth);
 //            pointRes.Eth = GroundStateProblem::energy2(x0, J, U0, dU, point.mu, 0);
 
             //            prob->setTheta(2 * theta);
@@ -432,14 +474,14 @@ void phasepoints(Parameter& xi, double theta, queue<Point>& points, vector<Point
 
             pointRes.fs = (pointRes.Eth - E0) / (L * theta * theta);
 
-            if (pointRes.fs > -1e-5) {
-                break;
-            }
-            else {
-                //                theta *= 0.4641588833612779;
-            }
-        }
-        pointRes.theta = count; //theta;
+//            if (pointRes.fs > -1e-5) {
+//                break;
+//            }
+//            else {
+//                //                theta *= 0.4641588833612779;
+//            }
+//        }
+//        pointRes.theta = count; //theta;
 
         {
             boost::mutex::scoped_lock lock(points_mutex);
@@ -454,7 +496,7 @@ void phasepoints(Parameter& xi, double theta, queue<Point>& points, vector<Point
 
     {
         boost::mutex::scoped_lock lock(problem_mutex);
-        delete prob;
+//        delete prob;
     }
 
 }
@@ -625,6 +667,14 @@ int main(int argc, char** argv) {
 
     //    bool sample = lexical_cast<bool>(argv[18]);
 
+    tls.reset(new thread_id(0));
+    thread_alloc::parallel_setup(numthreads+1, in_parallel, thread_num);
+    thread_alloc::hold_memory(true);
+    parallel_ad<double>();
+    CheckSimpleVector<size_t, CppAD::vector<size_t>>();
+    CheckSimpleVector<set<size_t>, CppAD::vector<set<size_t>>>(CppAD::one_element_std_set<size_t>(), CppAD::two_element_std_set<size_t>());
+    parallel = true;
+
 #ifdef AMAZON
     //    path resdir("/home/ubuntu/Dropbox/Amazon EC2/Simulation Results/Gutzwiller Phase Diagram");
     path resdir("/home/ubuntu/Dropbox/Amazon EC2/Simulation Results/Canonical Transformation Gutzwiller");
@@ -683,7 +733,7 @@ int main(int argc, char** argv) {
 
         cout << "Res: " << resi << endl;
 
-        GroundStateProblem::setup();
+//        GroundStateProblem::setup();
 
         queue<Point> points;
         queue<Point> points2;
@@ -1336,11 +1386,11 @@ int main(int argc, char** argv) {
 
         vector<PointResults> pointRes;
 
-        GroundStateProblem::setup();
+//        GroundStateProblem::setup();
         thread_group threads;
         for (int i = 0; i < numthreads; i++) {
             //                        threads.emplace_back(phasepoints, std::ref(xi), theta, std::ref(points), std::ref(f0res), std::ref(E0res), std::ref(Ethres), std::ref(fsres), std::ref(progress));
-            threads.create_thread(bind(&phasepoints, boost::ref(xi), theta, boost::ref(points), boost::ref(pointRes), boost::ref(progress)));
+            threads.create_thread(bind(&phasepoints, i+1, boost::ref(xi), theta, boost::ref(points), boost::ref(pointRes), boost::ref(progress)));
         }
         threads.join_all();
 

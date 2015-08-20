@@ -41,7 +41,7 @@ double energyfunc(const std::vector<double>& x, std::vector<double>& grad, void 
         cppx[i] = x[i];
     }
     CppAD::vector<double> cppgrad = E->Jacobian(cppx);
-    copy(cppgrad.data(), cppgrad.data()+grad.size(), grad.begin());
+    copy(cppgrad.data(), cppgrad.data() + grad.size(), grad.begin());
     return E->Forward(0, cppx)[0];
 }
 
@@ -334,15 +334,21 @@ T GroundStateProblem::energy(CppAD::vector<T>& fin, vector<double>& J, double U0
     return E.real();
 }
 
-    void GroundStateProblem::setParameters(double U0, vector<double>& dU, vector<double>& J, double mu, double theta) {
-            CppAD::vector<AD<double>> fin(2*L*dim);
-    for(int i = 0; i < 2*L*dim; i++) {
+void GroundStateProblem::setParameters(double U0, vector<double>& dU, vector<double>& J, double mu, double theta) {
+    CppAD::vector<AD<double>> fin(2 * L * dim);
+    for (int i = 0; i < 2 * L * dim; i++) {
         fin[i] = 1;
     }
     Independent(fin);
     CppAD::vector<AD<double>> E(1);
-        E[0] = energy(fin, J, U0, dU, mu, theta);
+    E[0] = energy(fin, J, U0, dU, mu, theta);
     Efunc = new ADFun<double>(fin, E);
     Efunc->optimize();
 
 }
+
+string GroundStateProblem::getRuntime() {
+    time_period period(start_time, stop_time);
+    return to_simple_string(period.length());
+}
+
