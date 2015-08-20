@@ -1,7 +1,37 @@
-#include <vector>
-
+#include <complex>
+using std::complex;
 
 #include "cppad.hpp"
+#include "gutzwiller.hpp"
+
+namespace CppAD {
+
+    inline bool isinf(AD<double> x) {
+        return false;
+    }
+
+    inline double copysign(AD<double> x, AD<double> y) {
+        return 0;
+    }
+}
+
+template<class _Tp>
+inline
+complex<AD<_Tp>>
+operator*(const complex<AD<_Tp>>&__x, const _Tp& __y) {
+    complex<AD < _Tp >> __t(__x);
+    __t *= AD<_Tp>(__y);
+    return __t;
+}
+
+template<class _Tp>
+inline
+complex<AD<_Tp>>
+operator*(const _Tp& __x, const complex<AD<_Tp>>&__y) {
+    complex<AD < _Tp >> __t(__y);
+    __t *= AD<_Tp>(__x);
+    return __t;
+}
 
 double energyfunc(const std::vector<double>& x, std::vector<double>& grad, void *data) {
     GroundStateProblem* prob = static_cast<GroundStateProblem*> (data);
@@ -13,7 +43,6 @@ double energyfunc(const std::vector<double>& x, std::vector<double>& grad, void 
     CppAD::vector<double> cppgrad = E->Jacobian(cppx);
     copy(cppgrad.data(), cppgrad.data()+grad.size(), grad.begin());
     return E->Forward(0, cppx)[0];
-    return prob->E(x, grad);
 }
 
 template<class T>
@@ -24,7 +53,7 @@ T GroundStateProblem::energy(CppAD::vector<T>& fin, vector<double>& J, double U0
     complex<T> exp2th = expth*expth;
     complex<T> expm2th = ~exp2th;
 
-    vector<complex<T>* > f(L);
+    vector<complex<T>*> f(L);
     vector<T> norm2(L, 0);
     for (int j = 0; j < L; j++) {
         f[j] = reinterpret_cast<complex<T>*> (&fin[2 * j * dim]);

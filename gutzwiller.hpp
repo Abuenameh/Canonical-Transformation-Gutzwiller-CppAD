@@ -14,6 +14,10 @@
 
 using namespace std;
 
+#include <casadi/casadi.hpp>
+
+using namespace casadi;
+
 const int L = 50;
 const int nmax = 5;
 const int dim = nmax + 1;
@@ -31,34 +35,34 @@ inline int mod(int i) {
 	return (i + L) % L;
 }
 
-inline double g2(int n, int m) {
-    return sqrt(1.0*(n + 1) * m);
-}
+//inline double g2(int n, int m) {
+//    return sqrt(1.0*(n + 1) * m);
+//}
+//
+//inline double eps(vector<double>& U, int i, int j, int n, int m) {
+//	return n * U[i] - (m - 1) * U[j];
+//}
+//
+//inline double eps(double U, int n, int m) {
+//    return (n - m + 1) * U;
+//}
 
-inline double eps(vector<double>& U, int i, int j, int n, int m) {
-	return n * U[i] - (m - 1) * U[j];
-}
-
-inline double eps(double U, int n, int m) {
-    return (n - m + 1) * U;
-}
-
-inline SX g(int n, int m) {
-    return sqrt(1.0*(n + 1) * m);
-}
-
-inline SX eps(vector<SX>& U, int i, int j, int n, int m) {
-	return n * U[i] - (m - 1) * U[j];
-}
-
-inline SX eps(SX& U, int n, int m) {
-    return (n - m + 1) * U;
-}
-
-inline SX eps(vector<SX>& U, int i, int j, int n, int m, int k, int l, int p, int q) {
-    return n*U[i] - (m-1)*U[j] + (q-1)*U[k] - p*U[l];
-}
-
+//inline SX g(int n, int m) {
+//    return sqrt(1.0*(n + 1) * m);
+//}
+//
+//inline SX eps(vector<SX>& U, int i, int j, int n, int m) {
+//	return n * U[i] - (m - 1) * U[j];
+//}
+//
+//inline SX eps(SX& U, int n, int m) {
+//    return (n - m + 1) * U;
+//}
+//
+//inline SX eps(vector<SX>& U, int i, int j, int n, int m, int k, int l, int p, int q) {
+//    return n*U[i] - (m-1)*U[j] + (q-1)*U[k] - p*U[l];
+//}
+//
 
 #endif	/* GUTZWILLER_HPP */
 

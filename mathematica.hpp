@@ -32,6 +32,7 @@ using std::vector;
 #include <boost/multi_array.hpp>
 #include <boost/algorithm/string.hpp>
 
+using boost::lexical_cast;
 using boost::multi_array;
 
 using namespace boost::algorithm;
