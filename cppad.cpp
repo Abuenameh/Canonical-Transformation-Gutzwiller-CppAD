@@ -42,7 +42,7 @@ double energyfunc(const std::vector<double>& x, std::vector<double>& grad, void 
     }
     CppAD::vector<double> cppgrad = E->Jacobian(cppx);
     copy(cppgrad.data(), cppgrad.data() + grad.size(), grad.begin());
-    cout << E->Forward(0, cppx)[0] << endl;
+//    cout << E->Forward(0, cppx)[0] << endl;
     return E->Forward(0, cppx)[0];
 }
 
