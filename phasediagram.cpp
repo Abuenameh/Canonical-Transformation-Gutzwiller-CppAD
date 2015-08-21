@@ -227,8 +227,8 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
         lopt.set_lower_bounds(-1);
         lopt.set_upper_bounds(1);
         lopt.set_min_objective(energyfunc, &prob);
-//        lopt.set_ftol_abs(1e-14);
-//        lopt.set_ftol_rel(1e-16);
+//        lopt.set_ftol_abs(1e-15);
+        lopt.set_ftol_rel(1e-15);
 //        lopt.set_xtol_abs(1e-30);
 //        lopt.set_xtol_rel(1e-16);
         gopt.set_lower_bounds(-1);
@@ -1266,15 +1266,15 @@ int main(int argc, char** argv) {
             }
         }
         
-//        points.push({2.03922e11, 0.2667});
-        int nW = 100;
+//        points.push({2.27878787879e11, 0.2667});
+        int nW = 40;
         for (int i = 0; i < nW; i++) {
-            double Wi = 2e10;
-            double Wf = 1.5e11;
+            double Wi = 2.2424242424e11;
+            double Wf = 2.4e11;
             double W = Wi + i*(Wf - Wi)/(nW-1);
-//            points.push({W, 0.9});
+            points.push({W, 0.2667});
         }
-        points.push({2e10,0.9});
+//        points.push({2e10,0.9});
 
         /*{
                   double x1min = 2.05e10;
@@ -1457,8 +1457,8 @@ int main(int argc, char** argv) {
         printMath(os, "E0", resi, E0);
         printMath(os, "Eth", resi, Eth);
         //        printMath(os, "E2th", resi, E2th);
-        //        printMath(os, "status0", resi, status0);
-        //        printMath(os, "statusth", resi, statusth);
+                printMath(os, "status0", resi, status0);
+                printMath(os, "statusth", resi, statusth);
         //        printMath(os, "status2th", resi, status2th);
         //        printMath(os, "runtime0", resi, runtime0);
         //        printMath(os, "runtimeth", resi, runtimeth);
