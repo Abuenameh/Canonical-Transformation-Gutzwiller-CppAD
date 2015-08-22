@@ -203,7 +203,7 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
 
     boost::random::mt19937 xrng;
     xrng.seed(time(NULL));
-    boost::random::uniform_real_distribution<> xuni(0, 1);
+    boost::random::uniform_real_distribution<> xuni(0, 10);
     vector<double> xrand(ndim);
     for (int i = 0; i < ndim; i++) {
         xrand[i] = xuni(xrng);
@@ -267,11 +267,11 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
         boost::mutex::scoped_lock lock(problem_mutex);
 //        prob = new GroundStateProblem();
 
-        lopt.set_lower_bounds(-1);
-        lopt.set_upper_bounds(1);
+        lopt.set_lower_bounds(-10);
+        lopt.set_upper_bounds(10);
         lopt.set_min_objective(energyfunc, &prob);
 //        lopt.set_ftol_abs(1e-15);
-        lopt.set_ftol_rel(1e-15);
+//        lopt.set_ftol_rel(1e-15);
 //        lopt.set_xtol_abs(1e-30);
 //        lopt.set_xtol_rel(1e-16);
         gopt.set_lower_bounds(-1);
@@ -1341,12 +1341,12 @@ int main(int argc, char** argv) {
         }
         
 //        points.push({2.27878787879e11, 0.2667});
-        int nW = 40;
+        int nW = 30;
         for (int i = 0; i < nW; i++) {
-            double Wi = 2.2424242424e11;
-            double Wf = 2.4e11;
+            double Wi = 4.7e10;//2.0e10;
+            double Wf = 6e10;//1.5e11;
             double W = Wi + i*(Wf - Wi)/(nW-1);
-            points.push({W, 0.2667});
+            points.push({W, 0.9});
         }
 //        points.push({2e10,0.9});
 
