@@ -21,6 +21,7 @@ using namespace boost::posix_time;
 using namespace nlopt;
 
 #include <cppad/cppad.hpp>
+#include <cppad/ipopt/solve.hpp>
 using CppAD::thread_alloc;
 using CppAD::parallel_ad;
 using CppAD::CheckSimpleVector;
@@ -175,6 +176,26 @@ size_t thread_num() {
     return tls->id;
 }
 
+class E_eval {
+public:
+    typedef CppAD::vector<CppAD::AD<double>> ADvector;
+
+    E_eval(double U0_, vector<double>& dU_, vector<double>& J_, double mu_, double theta_) : U0(U0_), dU(dU_), J(J_), mu(mu_), theta(theta_) {}
+//    E_eval(GroundStateProblem& prob_) : prob(prob_) {}
+
+    void operator()(ADvector& fg, const ADvector& x) {
+        fg[0] = GroundStateProblem::energy(const_cast<ADvector&> (x), J, U0, dU, mu, theta);
+    }
+    
+private:
+    double U0;
+    vector<double>& dU;
+    vector<double>& J;
+    double mu;
+    double theta;
+//    GroundStateProblem& prob;
+};
+
 void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, vector<PointResults>& pres, progress_display& progress) {
     tls.reset(new thread_id(thread));
 
@@ -211,7 +232,29 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
 
     double scale = 1;
 
-//    GroundStateProblem* prob;
+    CppAD::vector<double> xinit(ndim);
+    for (int i = 0; i < ndim; i++) {
+        xinit[i] = 1.0;
+    }
+    CppAD::vector<double> xl(ndim), xu(ndim);
+    for (int i = 0; i < ndim; i++) {
+        xl[i] = -2.0;
+        xu[i] = 2.0;
+    }
+    CppAD::vector<double> gl, gu;
+
+    // options 
+    std::string options;
+    	options += "Integer print_level  0\n"; 
+    options += "String  sb           yes\n";
+    options += "Integer max_iter     1000\n";
+    options += "Numeric tol          1e-14\n";
+    options += "Numeric acceptable_tol          1e-14\n";
+    options += "Numeric point_perturbation_radius  0.\n";
+    options += "String linear_solver ma97\n";
+    options += "Sparse true reverse\n";
+
+    //    GroundStateProblem* prob;
     GroundStateProblem prob;
     opt lopt(LD_LBFGS, ndim);
 //    opt lopt(LN_SBPLX, ndim);
@@ -295,6 +338,8 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
 
 //        prob->setParameters(U0, dU, J, point.mu / scale);
         prob.setParameters(U0, dU, J, point.mu / scale, 0);
+        
+        E_eval E0_eval(U0, dU, J, point.mu / scale, 0);
 
         //        generate(x0.begin(), x0.end(), randx);
         //        generate(xth.begin(), xth.end(), randx);
@@ -302,7 +347,10 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
 
 //        prob->setTheta(0);
 
-        double E0;
+    // place to return solution
+    CppAD::ipopt::solve_result<CppAD::vector<double>> solution;
+
+    double E0;
         string result0;
         try {
             prob.start();
@@ -312,10 +360,22 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
             //            E0 = pop0.champion().f[0];
             //            x0 = pop0.champion().x;
 //                        result gres = gopt.optimize(x0, E0);
-            result res = lopt.optimize(x0, E0);
+
+    // solve the problem
+    CppAD::ipopt::solve<CppAD::vector<double>, E_eval>(
+            options, xinit,
+            xl, xu, gl, gu, E0_eval, solution
+            );
+
+    E0 = solution.obj_value;
+    for(int i = 0; i < ndim; i++) {
+        x0[i] = solution.x[i];
+    }
+
+//            result res = lopt.optimize(x0, E0);
 //            prob->stop();
             prob.stop();
-            result0 = to_string(res);
+//            result0 = to_string(res);
             //            E0 = prob->solve(x0);
         }
         catch (std::exception& e) {
@@ -370,6 +430,8 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
 //            prob->setTheta(theta);
         prob.setParameters(U0, dU, J, point.mu / scale, theta);
 
+        E_eval Eth_eval(U0, dU, J, point.mu / scale, theta);
+
 //    for (int i = 0; i < ndim; i++) {
 //        xth[i] = xuni(xrng);
 //    }
@@ -383,10 +445,22 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
                 //            Eth = popth.champion().f[0];
                 //            xth = popth.champion().x;
                 //                result gres = gopt.optimize(xth, Eth);
-                result res = lopt.optimize(xth, Eth);
+
+                // solve the problem
+    CppAD::ipopt::solve<CppAD::vector<double>, E_eval>(
+            options, xinit,
+            xl, xu, gl, gu, Eth_eval, solution
+            );
+
+    Eth = solution.obj_value;
+    for(int i = 0; i < ndim; i++) {
+        xth[i] = solution.x[i];
+    }
+
+//                result res = lopt.optimize(xth, Eth);
 //                prob->stop();
                 prob.stop();
-                resultth = to_string(res);
+//                resultth = to_string(res);
                 //            Eth = prob->solve(xth);
             }
             catch (std::exception& e) {

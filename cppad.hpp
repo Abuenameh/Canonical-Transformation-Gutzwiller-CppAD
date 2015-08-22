@@ -62,14 +62,13 @@ public:
         stop_time = microsec_clock::local_time();
     }
 
-//    static void setup();
+    template<class T> static T energy(CppAD::vector<T>& fin, vector<double>& J, double U0, vector<double>& dU, double mu, double theta);
+
 
 private:
 
     ptime start_time;
     ptime stop_time;
-
-    template<class T> static T energy(CppAD::vector<T>& fin, vector<double>& J, double U0, vector<double>& dU, double mu, double theta);
 
     string status;
     double runtime;
