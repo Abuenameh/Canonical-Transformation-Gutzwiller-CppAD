@@ -22,6 +22,8 @@ using CppAD::AD;
 using CppAD::ADFun;
 using CppAD::Independent;
 
+#include <lbfgs.h>
+
 inline double g(int n, int m) {
     return sqrt(1.0 * (n + 1) * m);
 }
@@ -77,6 +79,8 @@ private:
 };
 
 double energyfunc(const vector<double>& x, vector<double>& grad, void *data);
+
+lbfgsfloatval_t energyfunc(void *instance, const lbfgsfloatval_t *x, lbfgsfloatval_t *g, const int n, const lbfgsfloatval_t step);
 
 #endif	/* CPPAD_HPP */
 

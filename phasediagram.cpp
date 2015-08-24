@@ -22,11 +22,16 @@ using namespace nlopt;
 
 #include <cppad/cppad.hpp>
 #include <cppad/ipopt/solve.hpp>
+using CppAD::AD;
+using CppAD::ADFun;
+using CppAD::Independent;
 using CppAD::thread_alloc;
 using CppAD::parallel_ad;
 using CppAD::CheckSimpleVector;
 using CppAD::one_element_std_set;
 using CppAD::two_element_std_set;
+
+#include <lbfgs.h>
 
 
 //#include "casadi.hpp"
@@ -196,6 +201,17 @@ private:
 //    GroundStateProblem& prob;
 };
 
+int roundUp(int numToRound, int multiple) {
+    if (multiple == 0) {
+        return numToRound;
+    }
+
+    int remainder = numToRound % multiple;
+    if (remainder == 0)
+        return numToRound;
+    return numToRound + multiple - remainder;
+}
+
 void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, vector<PointResults>& pres, progress_display& progress) {
     tls.reset(new thread_id(thread));
 
@@ -253,6 +269,23 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
     options += "Numeric point_perturbation_radius  0.\n";
     options += "String linear_solver ma97\n";
     options += "Sparse true reverse\n";
+
+    int nx = roundUp(2 * L*dim, 16);
+    lbfgsfloatval_t *lx = lbfgs_malloc(nx);
+    lbfgs_parameter_t param;
+    for(int i = 0; i < 2*L*dim; i++) {
+        lx[i] = 1;
+    }
+    for(int i = 2*L*dim; i < nx; i++) {
+        lx[i] = 0;
+    }
+    lbfgs_parameter_init(&param);
+    param.epsilon = 1e-7;
+    lbfgsfloatval_t fx;
+    int ret = lbfgs(rnx, lx, &fx, lbfgs_eval, NULL, &zx, &param);
+    for(int i = 0; i < 2*L*dim; i++) {
+        cout << lexical_cast<string>(lx[i]) << endl;
+    }
 
     //    GroundStateProblem* prob;
     GroundStateProblem prob;
@@ -362,16 +395,29 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
 //                        result gres = gopt.optimize(x0, E0);
 
     // solve the problem
-    CppAD::ipopt::solve<CppAD::vector<double>, E_eval>(
-            options, xinit,
-            xl, xu, gl, gu, E0_eval, solution
-            );
+//    CppAD::ipopt::solve<CppAD::vector<double>, E_eval>(
+//            options, xinit,
+//            xl, xu, gl, gu, E0_eval, solution
+//            );
+//
+//    E0 = solution.obj_value;
+//    for(int i = 0; i < ndim; i++) {
+//        x0[i] = solution.x[i];
+//    }
 
-    E0 = solution.obj_value;
     for(int i = 0; i < ndim; i++) {
-        x0[i] = solution.x[i];
+        lx[i] = x0[i];
     }
-
+            for(int i = ndim; i < nx; i++) {
+                lx[i] = 0;
+            }
+    int res = lbfgs(nx, lx, &E0, energyfunc, NULL, &prob, &param);
+    result0 = to_string(res);
+    for(int i = 0; i < ndim; i++) {
+        x0[i] = lx[i];
+    }
+            
+            
 //            result res = lopt.optimize(x0, E0);
 //            prob->stop();
             prob.stop();
@@ -381,8 +427,8 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
         catch (std::exception& e) {
 //            prob->stop();
             prob.stop();
-            result res = lopt.last_optimize_result();
-            result0 = to_string(res) + ": " + e.what();
+//            result res = lopt.last_optimize_result();
+//            result0 = to_string(res) + ": " + e.what();
             printf("nlopt failed for E0 at %f, %f\n", point.x, point.mu);
             cout << e.what() << endl;
             E0 = numeric_limits<double>::quiet_NaN();
@@ -447,16 +493,28 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
                 //                result gres = gopt.optimize(xth, Eth);
 
                 // solve the problem
-    CppAD::ipopt::solve<CppAD::vector<double>, E_eval>(
-            options, xinit,
-            xl, xu, gl, gu, Eth_eval, solution
-            );
+//    CppAD::ipopt::solve<CppAD::vector<double>, E_eval>(
+//            options, xinit,
+//            xl, xu, gl, gu, Eth_eval, solution
+//            );
+//
+//    Eth = solution.obj_value;
+//    for(int i = 0; i < ndim; i++) {
+//        xth[i] = solution.x[i];
+//    }
 
-    Eth = solution.obj_value;
     for(int i = 0; i < ndim; i++) {
-        xth[i] = solution.x[i];
+        lx[i] = xth[i];
     }
-
+            for(int i = ndim; i < nx; i++) {
+                lx[i] = 0;
+            }
+    int res = lbfgs(nx, lx, &Eth, energyfunc, NULL, &prob, &param);
+    resultth = to_string(res);
+    for(int i = 0; i < ndim; i++) {
+        xth[i] = lx[i];
+    }
+            
 //                result res = lopt.optimize(xth, Eth);
 //                prob->stop();
                 prob.stop();
@@ -567,6 +625,8 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
             ++progress;
         }
     }
+
+    lbfgs_free(lx);
 
     {
         boost::mutex::scoped_lock lock(problem_mutex);

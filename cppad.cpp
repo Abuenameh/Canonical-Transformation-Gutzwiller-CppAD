@@ -46,6 +46,19 @@ double energyfunc(const std::vector<double>& x, std::vector<double>& grad, void 
     return E->Forward(0, cppx)[0];
 }
 
+lbfgsfloatval_t energyfunc(void *instance, const lbfgsfloatval_t *x, lbfgsfloatval_t *g, const int n, const lbfgsfloatval_t step) {
+    GroundStateProblem* prob = static_cast<GroundStateProblem*> (instance);
+    ADFun<double>* E = prob->E();
+    CppAD::vector<double> cppx(2*L*dim);
+    for (int i = 0; i < 2*L*dim; i++) {
+        cppx[i] = x[i];
+    }
+    CppAD::vector<double> cppgrad = E->Jacobian(cppx);
+    fill(g, g + n, 0);
+    copy(cppgrad.data(), cppgrad.data() + 2 * L*dim, g);
+    return E->Forward(0, cppx)[0];
+}
+
 template<class T>
 T GroundStateProblem::energy(CppAD::vector<T>& fin, vector<double>& J, double U0, vector<double>& dU, double mu, double theta) {
 
