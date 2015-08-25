@@ -201,17 +201,6 @@ private:
 //    GroundStateProblem& prob;
 };
 
-int roundUp(int numToRound, int multiple) {
-    if (multiple == 0) {
-        return numToRound;
-    }
-
-    int remainder = numToRound % multiple;
-    if (remainder == 0)
-        return numToRound;
-    return numToRound + multiple - remainder;
-}
-
 void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, vector<PointResults>& pres, progress_display& progress) {
     tls.reset(new thread_id(thread));
 
@@ -270,22 +259,12 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
     options += "String linear_solver ma97\n";
     options += "Sparse true reverse\n";
 
-    int nx = roundUp(2 * L*dim, 16);
-    lbfgsfloatval_t *lx = lbfgs_malloc(nx);
+    lbfgsfloatval_t *lx = lbfgs_malloc(ndim);
     lbfgs_parameter_t param;
-    for(int i = 0; i < 2*L*dim; i++) {
-        lx[i] = 1;
-    }
-    for(int i = 2*L*dim; i < nx; i++) {
-        lx[i] = 0;
-    }
     lbfgs_parameter_init(&param);
-    param.epsilon = 1e-7;
-    lbfgsfloatval_t fx;
-    int ret = lbfgs(rnx, lx, &fx, lbfgs_eval, NULL, &zx, &param);
-    for(int i = 0; i < 2*L*dim; i++) {
-        cout << lexical_cast<string>(lx[i]) << endl;
-    }
+    param.linesearch = LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
+    param.epsilon = 0.5e-10;
+//    param.epsilon = 1e-10;
 
     //    GroundStateProblem* prob;
     GroundStateProblem prob;
@@ -408,10 +387,7 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
     for(int i = 0; i < ndim; i++) {
         lx[i] = x0[i];
     }
-            for(int i = ndim; i < nx; i++) {
-                lx[i] = 0;
-            }
-    int res = lbfgs(nx, lx, &E0, energyfunc, NULL, &prob, &param);
+    int res = lbfgs(ndim, lx, &E0, energyfunc, NULL, &prob, &param);
     result0 = to_string(res);
     for(int i = 0; i < ndim; i++) {
         x0[i] = lx[i];
@@ -506,10 +482,7 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
     for(int i = 0; i < ndim; i++) {
         lx[i] = xth[i];
     }
-            for(int i = ndim; i < nx; i++) {
-                lx[i] = 0;
-            }
-    int res = lbfgs(nx, lx, &Eth, energyfunc, NULL, &prob, &param);
+    int res = lbfgs(ndim, lx, &Eth, energyfunc, NULL, &prob, &param);
     resultth = to_string(res);
     for(int i = 0; i < ndim; i++) {
         xth[i] = lx[i];
@@ -1401,12 +1374,12 @@ int main(int argc, char** argv) {
         }
         
 //        points.push({2.27878787879e11, 0.2667});
-        int nW = 30;
+        int nW = 100;
         for (int i = 0; i < nW; i++) {
-            double Wi = 4.7e10;//2.0e10;
-            double Wf = 6e10;//1.5e11;
+            double Wi = 1e11;//4.7e10;//2.0e10;
+            double Wf = 3e11;//6e10;//1.5e11;
             double W = Wi + i*(Wf - Wi)/(nW-1);
-            points.push({W, 0.9});
+            points.push({W, 0.3});
         }
 //        points.push({2e10,0.9});
 

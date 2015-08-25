@@ -42,7 +42,8 @@ inline double eps(vector<double>& U, int i, int j, int n, int m, int k, int l, i
 
 class GroundStateProblem {
 public:
-    GroundStateProblem() {}
+    GroundStateProblem() : Efunc(NULL) {}
+    ~GroundStateProblem() { if(Efunc) delete Efunc; }
 
     void setParameters(double U0, vector<double>& dU, vector<double>& J, double mu, double theta);
 //    void setTheta(double theta);

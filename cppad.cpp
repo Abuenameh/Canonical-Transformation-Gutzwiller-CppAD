@@ -356,6 +356,8 @@ void GroundStateProblem::setParameters(double U0, vector<double>& dU, vector<dou
     Independent(fin);
     CppAD::vector<AD<double>> E(1);
     E[0] = energy(fin, J, U0, dU, mu, theta);
+    if (Efunc)
+        delete Efunc;
     Efunc = new ADFun<double>(fin, E);
     Efunc->optimize();
 
