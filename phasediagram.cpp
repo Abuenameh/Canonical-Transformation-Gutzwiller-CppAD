@@ -185,20 +185,21 @@ class E_eval {
 public:
     typedef CppAD::vector<CppAD::AD<double>> ADvector;
 
-    E_eval(double U0_, vector<double>& dU_, vector<double>& J_, double mu_, double theta_) : U0(U0_), dU(dU_), J(J_), mu(mu_), theta(theta_) {}
-//    E_eval(GroundStateProblem& prob_) : prob(prob_) {}
+    E_eval(double U0_, vector<double>& dU_, vector<double>& J_, double mu_, double theta_) : U0(U0_), dU(dU_), J(J_), mu(mu_), theta(theta_) {
+    }
+    //    E_eval(GroundStateProblem& prob_) : prob(prob_) {}
 
     void operator()(ADvector& fg, const ADvector& x) {
         fg[0] = GroundStateProblem::energy(const_cast<ADvector&> (x), J, U0, dU, mu, theta);
     }
-    
+
 private:
     double U0;
     vector<double>& dU;
     vector<double>& J;
     double mu;
     double theta;
-//    GroundStateProblem& prob;
+    //    GroundStateProblem& prob;
 };
 
 void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, vector<PointResults>& pres, progress_display& progress) {
@@ -250,46 +251,37 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
 
     // options 
     std::string options;
-    	options += "Integer print_level  0\n"; 
+    options += "Integer print_level  0\n";
     options += "String  sb           yes\n";
-    options += "Integer max_iter     1000\n";
-    options += "Numeric tol          1e-14\n";
-    options += "Numeric acceptable_tol          1e-14\n";
+    options += "Integer max_iter     2000\n";
+    options += "Numeric tol          1e-12\n";
+    options += "Numeric acceptable_tol          1e-12\n";
     options += "Numeric point_perturbation_radius  0.\n";
-    options += "String linear_solver ma97\n";
+    options += "String linear_solver ma77\n";
     options += "Sparse true reverse\n";
+    options += "String hessian_approximation limited-memory\n";
 
-    lbfgsfloatval_t *lx = lbfgs_malloc(ndim);
-    lbfgs_parameter_t param;
-    lbfgs_parameter_init(&param);
-    param.linesearch = LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
-    param.epsilon = 0.5e-10;
-//    param.epsilon = 1e-10;
+//    lbfgsfloatval_t *lx = lbfgs_malloc(ndim);
+//    lbfgs_parameter_t param;
+//    lbfgs_parameter_init(&param);
+//    param.linesearch = LBFGS_LINESEARCH_BACKTRACKING_ARMIJO;
+//    param.epsilon = 0.5e-10;
+//    //    param.epsilon = 1e-10;
 
     //    GroundStateProblem* prob;
     GroundStateProblem prob;
     opt lopt(LD_LBFGS, ndim);
-//    opt lopt(LN_SBPLX, ndim);
-    //    opt lopt(LD_CCSAQ, ndim);
-    opt gopt(GN_DIRECT, ndim);
-    //    energyprob eprob(ndim);
-    //    pagmo::algorithm::de_1220 algo(100);
-    //    int npop = 20;
     {
         boost::mutex::scoped_lock lock(problem_mutex);
-//        prob = new GroundStateProblem();
+        //        prob = new GroundStateProblem();
 
         lopt.set_lower_bounds(-10);
         lopt.set_upper_bounds(10);
         lopt.set_min_objective(energyfunc, &prob);
-//        lopt.set_ftol_abs(1e-15);
-//        lopt.set_ftol_rel(1e-15);
-//        lopt.set_xtol_abs(1e-30);
-//        lopt.set_xtol_rel(1e-16);
-        gopt.set_lower_bounds(-1);
-        gopt.set_upper_bounds(1.1);
-        gopt.set_min_objective(energyfunc, &prob);
-        gopt.set_maxtime(120);
+        //        lopt.set_ftol_abs(1e-15);
+        //        lopt.set_ftol_rel(1e-15);
+        //        lopt.set_xtol_abs(1e-30);
+        //        lopt.set_xtol_rel(1e-16);
         //                lopt.set_maxtime(120);
         //                lopt.set_ftol_abs(1e-17);
         //                lopt.set_ftol_rel(1e-17);
@@ -330,81 +322,55 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
             J[i] = JWij(W[i], W[mod(i + 1)]) / UW(point.x) / scale;
             //            J[i] = JWij(point.x, point.x) / UW(point.x) / scale;
         }
-//        cout << endl << ::math(dU) << endl << endl;
-//        cout << endl << ::math(J) << endl << endl;
-//        cout << endl << point.mu << endl << endl;
+        //        cout << endl << ::math(dU) << endl << endl;
+        //        cout << endl << ::math(J) << endl << endl;
+        //        cout << endl << point.mu << endl << endl;
         pointRes.Ux = UW(point.x);
         pointRes.Jx = JWij(point.x, point.x);
         pointRes.J = J;
         pointRes.U = U;
 
-        //        fill(x0.begin(), x0.end(), 0.5);
-        //        fill(xth.begin(), xth.end(), 0.5);
-        //        fill(x2th.begin(), x2th.end(), 0.5);
-        //        generate(x0.begin(), x0.end(), randx);
-        //        generate(xth.begin(), xth.end(), randx);
-        //        generate(x2th.begin(), x2th.end(), randx);
         x0 = xrand;
         xth = xrand;
         x2th = xrand;
 
-//        prob->setParameters(U0, dU, J, point.mu / scale);
+        //        prob->setParameters(U0, dU, J, point.mu / scale);
         prob.setParameters(U0, dU, J, point.mu / scale, 0);
-        
+
         E_eval E0_eval(U0, dU, J, point.mu / scale, 0);
 
-        //        generate(x0.begin(), x0.end(), randx);
-        //        generate(xth.begin(), xth.end(), randx);
-        //        generate(x2th.begin(), x2th.end(), randx);
+        // place to return solution
+        CppAD::ipopt::solve_result<CppAD::vector<double>> solution;
 
-//        prob->setTheta(0);
-
-    // place to return solution
-    CppAD::ipopt::solve_result<CppAD::vector<double>> solution;
-
-    double E0;
+        double E0;
         string result0;
         try {
             prob.start();
-//            prob->start();
-            //            population pop0(eprob, npop);
-            //            algo.evolve(pop0);
-            //            E0 = pop0.champion().f[0];
-            //            x0 = pop0.champion().x;
-//                        result gres = gopt.optimize(x0, E0);
+            //            prob->start();
 
-    // solve the problem
-//    CppAD::ipopt::solve<CppAD::vector<double>, E_eval>(
-//            options, xinit,
-//            xl, xu, gl, gu, E0_eval, solution
-//            );
-//
-//    E0 = solution.obj_value;
-//    for(int i = 0; i < ndim; i++) {
-//        x0[i] = solution.x[i];
-//    }
+            // solve the problem
+            CppAD::ipopt::solve<CppAD::vector<double>, E_eval>(
+                    options, xinit,
+                    xl, xu, gl, gu, E0_eval, solution
+                    );
 
-    for(int i = 0; i < ndim; i++) {
-        lx[i] = x0[i];
-    }
-    int res = lbfgs(ndim, lx, &E0, energyfunc, NULL, &prob, &param);
-    result0 = to_string(res);
-    for(int i = 0; i < ndim; i++) {
-        x0[i] = lx[i];
-    }
-            
-            
-//            result res = lopt.optimize(x0, E0);
-//            prob->stop();
+            result0 = to_string(solution.status);
+            E0 = solution.obj_value;
+            for (int i = 0; i < ndim; i++) {
+                x0[i] = solution.x[i];
+            }
+
+            //            result res = lopt.optimize(x0, E0);
+            //            prob->stop();
             prob.stop();
-//            result0 = to_string(res);
+            //            result0 = to_string(res);
             //            E0 = prob->solve(x0);
         }
         catch (std::exception& e) {
-//            prob->stop();
+            //            prob->stop();
             prob.stop();
-//            result res = lopt.last_optimize_result();
-//            result0 = to_string(res) + ": " + e.what();
+            //            result res = lopt.last_optimize_result();
+            //            result0 = to_string(res) + ": " + e.what();
             printf("nlopt failed for E0 at %f, %f\n", point.x, point.mu);
             cout << e.what() << endl;
             E0 = numeric_limits<double>::quiet_NaN();
@@ -412,7 +378,7 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
         //        cout << ::math(x0) << endl;
         pointRes.status0 = result0;
         //        pointRes.status0 = prob->getStatus();
-//        pointRes.runtime0 = prob->getRuntime();
+        //        pointRes.runtime0 = prob->getRuntime();
         pointRes.runtime0 = prob.getRuntime();
 
         norms = norm(x0);
@@ -425,168 +391,80 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
             fmax[i] = *max_element(fabs[i].begin(), fabs[i].end());
             fn0[i] = fabs[i][1];
         }
-//        cout << endl << ::math(x0) << endl << endl;
+        //        cout << endl << ::math(x0) << endl << endl;
 
         pointRes.fmin = *min_element(fn0.begin(), fn0.end());
         pointRes.fn0 = fn0;
         pointRes.fmax = fmax;
         pointRes.f0 = x0;
         pointRes.E0 = E0;
-        
-//        pointRes.Eth = numeric_limits<double>::infinity();
 
-//        double count = 0;
-//        for (int j = 0; j < 1; j++) {
-//            count = j;
+        //        pointRes.Eth = numeric_limits<double>::infinity();
 
-            //        for (int thi = 0; thi < 10; thi++) {
-
-            //                    generate(xth.begin(), xth.end(), randx);
-            //                    generate(x2th.begin(), x2th.end(), randx);
-
-//            if (j == 1) {
-//                copy(x0.begin(), x0.end(), xth.begin());
-//                copy(x0.begin(), x0.end(), x2th.begin());
-//            }
-
-//            prob->setTheta(theta);
         prob.setParameters(U0, dU, J, point.mu / scale, theta);
 
         E_eval Eth_eval(U0, dU, J, point.mu / scale, theta);
 
-//    for (int i = 0; i < ndim; i++) {
-//        xth[i] = xuni(xrng);
-//    }
-            double Eth;
-            string resultth;
-            try {
-//                prob->start();
-                prob.start();
-                //            population popth(eprob, npop);
-                //            algo.evolve(popth);
-                //            Eth = popth.champion().f[0];
-                //            xth = popth.champion().x;
-                //                result gres = gopt.optimize(xth, Eth);
-
-                // solve the problem
-//    CppAD::ipopt::solve<CppAD::vector<double>, E_eval>(
-//            options, xinit,
-//            xl, xu, gl, gu, Eth_eval, solution
-//            );
-//
-//    Eth = solution.obj_value;
-//    for(int i = 0; i < ndim; i++) {
-//        xth[i] = solution.x[i];
-//    }
-
-    for(int i = 0; i < ndim; i++) {
-        lx[i] = xth[i];
-    }
-    int res = lbfgs(ndim, lx, &Eth, energyfunc, NULL, &prob, &param);
-    resultth = to_string(res);
-    for(int i = 0; i < ndim; i++) {
-        xth[i] = lx[i];
-    }
-            
-//                result res = lopt.optimize(xth, Eth);
-//                prob->stop();
-                prob.stop();
-//                resultth = to_string(res);
-                //            Eth = prob->solve(xth);
-            }
-            catch (std::exception& e) {
-//                prob->stop();
-                prob.stop();
-                result res = lopt.last_optimize_result();
-                resultth = to_string(res) + ": " + e.what();
-                printf("nlopt failed for Eth at %f, %f\n", point.x, point.mu);
-                cout << e.what() << endl;
-                Eth = numeric_limits<double>::quiet_NaN();
-            }
-            pointRes.statusth = resultth;
-            //        pointRes.statusth = prob->getStatus();
-//            pointRes.runtimeth = prob->getRuntime();
-            pointRes.runtimeth = prob.getRuntime();
-
-            norms = norm(xth);
-            for (int i = 0; i < L; i++) {
-                for (int n = 0; n <= nmax; n++) {
-                    xth[2 * (i * dim + n)] /= norms[i];
-                    xth[2 * (i * dim + n) + 1] /= norms[i];
-                }
-            }
-//        cout << endl << ::math(xth) << endl << endl;
-//            vector<double> grad(2*L*dim);
-//            prob->E(xth,grad);
-//            double maxg = 0;
-//            for (int i = 0; i < 2*L*dim; i++) {
-//                maxg = max(maxg, abs(grad[i]));
-//            }
-//            cout << ::math(maxg) << endl;
-//            prob->setTheta(0);
-//            prob->E(x0,grad);
-//            maxg = 0;
-//            for (int i = 0; i < 2*L*dim; i++) {
-//                maxg = max(maxg, abs(grad[i]));
-//            }
-//            cout << ::math(maxg) << endl;
-//            cout << endl;
-
-            pointRes.fth = xth;
-            pointRes.Eth = Eth;
-//            pointRes.Eth = min(pointRes.Eth, Eth);
-//            pointRes.Eth = GroundStateProblem::energy2(x0, J, U0, dU, point.mu, 0);
-
-            //            prob->setTheta(2 * theta);
-            //
-            //            double E2th;
-            //            string result2th;
-            //            try {
+        double Eth;
+        string resultth;
+        try {
             //                prob->start();
-            ////            population pop2th(eprob, npop);
-            ////            algo.evolve(pop2th);
-            ////            E2th = pop2th.champion().f[0];
-            ////            x2th = pop2th.champion().x;
-            ////                result gres = gopt.optimize(x2th, E2th);
-            //                result res = lopt.optimize(x2th, E2th);
-            //                prob->stop();
-            //                result2th = to_string(res);
-            //                //            E2th = prob->solve(x2th);
-            //            } catch (std::exception& e) {
-            //                prob->stop();
-            //                result res = lopt.last_optimize_result();
-            //                result2th = to_string(res) + ": " + e.what();
-            //                printf("Ipopt failed for E2th at %f, %f\n", point.x, point.mu);
-            //                cout << e.what() << endl;
-            //                E2th = numeric_limits<double>::quiet_NaN();
-            //            }
-            //            pointRes.status2th = result2th;
-            //            //        pointRes.status2th = prob->getStatus();
-            //            pointRes.runtime2th = prob->getRuntime();
-            //
-            //            norms = norm(x2th);
-            //            for (int i = 0; i < L; i++) {
-            //                for (int n = 0; n <= nmax; n++) {
-            //                    x2th[2 * (i * dim + n)] /= norms[i];
-            //                    x2th[2 * (i * dim + n) + 1] /= norms[i];
-            //                }
-            //            }
-            //
-            //            pointRes.f2th = x2th;
-            //            pointRes.E2th = E2th;
-            //
-            //            pointRes.fs = (E2th - 2 * Eth + E0) / (L * theta * theta);
+            prob.start();
 
-            pointRes.fs = (pointRes.Eth - E0) / (L * theta * theta);
+            // solve the problem
+            CppAD::ipopt::solve<CppAD::vector<double>, E_eval>(
+                    options, xinit,
+                    xl, xu, gl, gu, Eth_eval, solution
+                    );
 
-//            if (pointRes.fs > -1e-5) {
-//                break;
-//            }
-//            else {
-//                //                theta *= 0.4641588833612779;
-//            }
-//        }
-//        pointRes.theta = count; //theta;
+            resultth = to_string(solution.status);
+            Eth = solution.obj_value;
+            for (int i = 0; i < ndim; i++) {
+                xth[i] = solution.x[i];
+            }
+
+            //    for(int i = 0; i < ndim; i++) {
+            //        lx[i] = xth[i];
+            //    }
+            //    int res = lbfgs(ndim, lx, &Eth, energyfunc, NULL, &prob, &param);
+            //    resultth = to_string(res);
+            //    for(int i = 0; i < ndim; i++) {
+            //        xth[i] = lx[i];
+            //    }
+
+            //                result res = lopt.optimize(xth, Eth);
+            //                prob->stop();
+            prob.stop();
+            //                resultth = to_string(res);
+            //            Eth = prob->solve(xth);
+        }
+        catch (std::exception& e) {
+            //                prob->stop();
+            prob.stop();
+            result res = lopt.last_optimize_result();
+            resultth = to_string(res) + ": " + e.what();
+            printf("nlopt failed for Eth at %f, %f\n", point.x, point.mu);
+            cout << e.what() << endl;
+            Eth = numeric_limits<double>::quiet_NaN();
+        }
+        pointRes.statusth = resultth;
+        //        pointRes.statusth = prob->getStatus();
+        //            pointRes.runtimeth = prob->getRuntime();
+        pointRes.runtimeth = prob.getRuntime();
+
+        norms = norm(xth);
+        for (int i = 0; i < L; i++) {
+            for (int n = 0; n <= nmax; n++) {
+                xth[2 * (i * dim + n)] /= norms[i];
+                xth[2 * (i * dim + n) + 1] /= norms[i];
+            }
+        }
+        //        cout << endl << ::math(xth) << endl << endl;
+
+        pointRes.fth = xth;
+        pointRes.Eth = Eth;
+        pointRes.fs = (pointRes.Eth - E0) / (L * theta * theta);
+
 
         {
             boost::mutex::scoped_lock lock(points_mutex);
@@ -599,11 +477,11 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
         }
     }
 
-    lbfgs_free(lx);
+//    lbfgs_free(lx);
 
     {
         boost::mutex::scoped_lock lock(problem_mutex);
-//        delete prob;
+        //        delete prob;
     }
 
 }
@@ -633,11 +511,11 @@ double mufunc3(double x) {
 }
 
 double mufunc015l(double x) {
-    return 0.032913659749522636 - 2.9822328051812337e-13*x + 8.053722708617216e-24*x*x - 1.8763641134601787e-35*x*x*x;
+    return 0.032913659749522636 - 2.9822328051812337e-13 * x + 8.053722708617216e-24 * x * x - 1.8763641134601787e-35 * x * x*x;
 }
 
 double mufunc015u(double x) {
-    return 0.9681686436831983 - 8.658141185587507e-13*x - 1.101464387746557e-23*x*x + 1.1101188794879753e-35*x*x*x;
+    return 0.9681686436831983 - 8.658141185587507e-13 * x - 1.101464387746557e-23 * x * x + 1.1101188794879753e-35 * x * x*x;
 }
 
 void getPoints(double xmin, double xmax, int nx, double (*mufunc)(double), int nmu, double muwidth, queue<Point>& points) {
@@ -775,11 +653,11 @@ int main(int argc, char** argv) {
     //    bool sample = lexical_cast<bool>(argv[18]);
 
     tls.reset(new thread_id(0));
-    thread_alloc::parallel_setup(numthreads+1, in_parallel, thread_num);
+    thread_alloc::parallel_setup(numthreads + 1, in_parallel, thread_num);
     thread_alloc::hold_memory(true);
     parallel_ad<double>();
-    CheckSimpleVector<size_t, CppAD::vector<size_t>>();
-    CheckSimpleVector<set<size_t>, CppAD::vector<set<size_t>>>(CppAD::one_element_std_set<size_t>(), CppAD::two_element_std_set<size_t>());
+    CheckSimpleVector<size_t, CppAD::vector < size_t >> ();
+    CheckSimpleVector<set<size_t>, CppAD::vector<set < size_t>>>(CppAD::one_element_std_set<size_t>(), CppAD::two_element_std_set<size_t>());
     parallel = true;
 
 #ifdef AMAZON
@@ -840,7 +718,7 @@ int main(int argc, char** argv) {
 
         cout << "Res: " << resi << endl;
 
-//        GroundStateProblem::setup();
+        //        GroundStateProblem::setup();
 
         queue<Point> points;
         queue<Point> points2;
@@ -848,96 +726,96 @@ int main(int argc, char** argv) {
         {
             double muwidth = 0.05;
             //            queue<Point> points;
-            
-                /*queue<Point> lpoints;
-            double mulsampwidth = 0.02;
-            for (int ix = 0; ix < nlsampx; ix++) {
-                //                double mu0 = 0.03615582350346575 - 5.005273114442404e-14*x[ix] + 6.275817853250553e-24*x[ix]*x[ix] - 1.4195907309128102e-35*x[ix]*x[ix]*x[ix]; // Delta = 0.25
-                //                double mu0 = 0.025470163481530313 - 2.2719398923789667e-13*x[ix] + 8.92045173286913e-24*x[ix]*x[ix] - 2.4033506846113224e-35*x[ix]*x[ix]*x[ix]; // Delta = 0.1
-                //                double mu0 = 0.028572248841708368 - 4.1318226651330257e-13*x[ix] + 1.1199528880961205e-23*x[ix]*x[ix] - 3.0330199477565917e-35*x[ix]*x[ix]*x[ix]; // Delta = 0
-//                double mu0 = 0.030969306517268605 + 1.9188880181335529e-13 * lsampx[ix] + 2.5616067018411045e-24 * lsampx[ix] * lsampx[ix] + 1.0173988468289905e-36 * lsampx[ix] * lsampx[ix] * lsampx[ix]; // Delta = 0.25 Lower
-                double mu0 = mufunc015l(lsampx[ix]);
-                double mui = max(mumin, mu0 - mulsampwidth);
-                double muf = min(mumax, mu0 + mulsampwidth);
-                deque<double> mu(nlsampmu);
-                if (nlsampmu == 1) {
-                    mu[0] = mui;
-                }
-                else {
-                    double dmu = (muf - mui) / (nlsampmu - 1);
-                    for (int imu = 0; imu < nlsampmu; imu++) {
-                        mu[imu] = mui + imu * dmu;
-                    }
-                }
+
+            /*queue<Point> lpoints;
+        double mulsampwidth = 0.02;
+        for (int ix = 0; ix < nlsampx; ix++) {
+            //                double mu0 = 0.03615582350346575 - 5.005273114442404e-14*x[ix] + 6.275817853250553e-24*x[ix]*x[ix] - 1.4195907309128102e-35*x[ix]*x[ix]*x[ix]; // Delta = 0.25
+            //                double mu0 = 0.025470163481530313 - 2.2719398923789667e-13*x[ix] + 8.92045173286913e-24*x[ix]*x[ix] - 2.4033506846113224e-35*x[ix]*x[ix]*x[ix]; // Delta = 0.1
+            //                double mu0 = 0.028572248841708368 - 4.1318226651330257e-13*x[ix] + 1.1199528880961205e-23*x[ix]*x[ix] - 3.0330199477565917e-35*x[ix]*x[ix]*x[ix]; // Delta = 0
+            //                double mu0 = 0.030969306517268605 + 1.9188880181335529e-13 * lsampx[ix] + 2.5616067018411045e-24 * lsampx[ix] * lsampx[ix] + 1.0173988468289905e-36 * lsampx[ix] * lsampx[ix] * lsampx[ix]; // Delta = 0.25 Lower
+            double mu0 = mufunc015l(lsampx[ix]);
+            double mui = max(mumin, mu0 - mulsampwidth);
+            double muf = min(mumax, mu0 + mulsampwidth);
+            deque<double> mu(nlsampmu);
+            if (nlsampmu == 1) {
+                mu[0] = mui;
+            }
+            else {
+                double dmu = (muf - mui) / (nlsampmu - 1);
                 for (int imu = 0; imu < nlsampmu; imu++) {
-                    Point point;
-                    point.x = lsampx[ix];
-                    point.mu = mu[imu];
-                    lpoints.push(point);
-//                    points.push(point);
+                    mu[imu] = mui + imu * dmu;
                 }
             }
-
-            progress_display lprogress(lpoints.size());
-
-            vector<PointResults> lpointRes;
-
-            thread_group lthreads;
-            for (int i = 0; i < numthreads; i++) {
-                lthreads.create_thread(bind(&phasepoints, boost::ref(xi), theta, boost::ref(lpoints), boost::ref(lpointRes), boost::ref(lprogress)));
+            for (int imu = 0; imu < nlsampmu; imu++) {
+                Point point;
+                point.x = lsampx[ix];
+                point.mu = mu[imu];
+                lpoints.push(point);
+            //                    points.push(point);
             }
-            lthreads.join_all();
+        }
 
-            vector<Sample> lWmuBWfsfmin;
+        progress_display lprogress(lpoints.size());
 
-            for (PointResults pres : lpointRes) {
-                lWmuBWfsfmin.push_back(make_tuple(pres.W, pres.mu, BWfs(pres.fs), BWfmin(pres.fmin)));
-            }
-            sort(lWmuBWfsfmin.begin(), lWmuBWfsfmin.end(), [](const Sample& a, const Sample & b) {
-                return get<0>(a) < get<0>(b);
+        vector<PointResults> lpointRes;
+
+        thread_group lthreads;
+        for (int i = 0; i < numthreads; i++) {
+            lthreads.create_thread(bind(&phasepoints, boost::ref(xi), theta, boost::ref(lpoints), boost::ref(lpointRes), boost::ref(lprogress)));
+        }
+        lthreads.join_all();
+
+        vector<Sample> lWmuBWfsfmin;
+
+        for (PointResults pres : lpointRes) {
+            lWmuBWfsfmin.push_back(make_tuple(pres.W, pres.mu, BWfs(pres.fs), BWfmin(pres.fmin)));
+        }
+        sort(lWmuBWfsfmin.begin(), lWmuBWfsfmin.end(), [](const Sample& a, const Sample & b) {
+            return get<0>(a) < get<0>(b);
+        });
+        stable_sort(lWmuBWfsfmin.begin(), lWmuBWfsfmin.end(), [](const Sample& a, const Sample & b) {
+            return get<1>(a) < get<1>(b);
+        });
+        vector<Sample> lsampbound;
+        for (int ix = 0; ix < nlsampx; ix++) {
+            auto boundary = find_if(lWmuBWfsfmin.begin(), lWmuBWfsfmin.end(), [&](const Sample & a) {
+                return get<0>(a) == lsampx[ix] && get<2>(a) == 1;
             });
-            stable_sort(lWmuBWfsfmin.begin(), lWmuBWfsfmin.end(), [](const Sample& a, const Sample & b) {
-                return get<1>(a) < get<1>(b);
-            });
-            vector<Sample> lsampbound;
-            for (int ix = 0; ix < nlsampx; ix++) {
-                auto boundary = find_if(lWmuBWfsfmin.begin(), lWmuBWfsfmin.end(), [&](const Sample & a) {
-                    return get<0>(a) == lsampx[ix] && get<2>(a) == 1;
-                });
-                if (boundary != lWmuBWfsfmin.end()) {
-                    lsampbound.push_back(*boundary);
-                }
+            if (boundary != lWmuBWfsfmin.end()) {
+                lsampbound.push_back(*boundary);
             }
-            for (int bix = 0; bix < lsampbound.size() - 1; bix++) {
-                double x1 = get<0>(lsampbound[bix]);
-                double x2 = get<0>(lsampbound[bix + 1]);
-                double mu1 = get<1>(lsampbound[bix]);
-                double mu2 = get<1>(lsampbound[bix + 1]);
-                double dx = (x2 - x1) / (nx - 1);
-                for (int ix = 0; ix < nx; ix++) {
-                    if (ix < nx - 1 || (bix == lsampbound.size() - 2)) {
-                        double mu0 = ix * dx * (mu2 - mu1) / (x2 - x1) + mu1;
-                        double mui = max(mumin, mu0 - muwidth);
-                        double muf = min(mumax, mu0 + muwidth);
-                        deque<double> mu(nmu);
-                        if (nmu == 1) {
-                            mu[0] = mui;
-                        }
-                        else {
-                            double dmu = (muf - mui) / (nmu - 1);
-                            for (int imu = 0; imu < nmu; imu++) {
-                                mu[imu] = mui + imu * dmu;
-                            }
-                        }
+        }
+        for (int bix = 0; bix < lsampbound.size() - 1; bix++) {
+            double x1 = get<0>(lsampbound[bix]);
+            double x2 = get<0>(lsampbound[bix + 1]);
+            double mu1 = get<1>(lsampbound[bix]);
+            double mu2 = get<1>(lsampbound[bix + 1]);
+            double dx = (x2 - x1) / (nx - 1);
+            for (int ix = 0; ix < nx; ix++) {
+                if (ix < nx - 1 || (bix == lsampbound.size() - 2)) {
+                    double mu0 = ix * dx * (mu2 - mu1) / (x2 - x1) + mu1;
+                    double mui = max(mumin, mu0 - muwidth);
+                    double muf = min(mumax, mu0 + muwidth);
+                    deque<double> mu(nmu);
+                    if (nmu == 1) {
+                        mu[0] = mui;
+                    }
+                    else {
+                        double dmu = (muf - mui) / (nmu - 1);
                         for (int imu = 0; imu < nmu; imu++) {
-                            Point point;
-                            point.x = x1 + ix * dx;
-                            point.mu = mu[imu];
-//                            points.push(point);
+                            mu[imu] = mui + imu * dmu;
                         }
                     }
+                    for (int imu = 0; imu < nmu; imu++) {
+                        Point point;
+                        point.x = x1 + ix * dx;
+                        point.mu = mu[imu];
+            //                            points.push(point);
+                    }
                 }
-            }*/
+            }
+        }*/
 
             /*int nldx = 5;
             for (int ix = 0; ix < nldx*(nlsampx - 1); ix++) {
@@ -1266,12 +1144,13 @@ int main(int argc, char** argv) {
         //        vector<pair<double, double>> ps({{50000000000, 0.903265}, {159500000000, 0.666948}, {234500000000, 
         //  0.166431}, {303500000000, 0.121481}, {309500000000, 0.0942961}});
         vector<pair<double, double>> ps({
-            {2.60100166944908e10, 0.0366959735767002}});
+            {2.60100166944908e10, 0.0366959735767002}
+        });
         for (pair<double, double> p : ps) {
             Point point;
             point.x = p.first;
             point.mu = p.second;
-//            points.push(point);
+            //            points.push(point);
         }
 
         double muwidth = 0.02;
@@ -1318,70 +1197,70 @@ int main(int argc, char** argv) {
                 //                            points.push(point);
             }
         }
-        
+
         int nmu2 = 20;
         int nx2 = 20;
         for (int ix = 0; ix < nx2; ix++) {
-            double x = 2e10 + ix*(3e11 - 2e10)/(nx2-1);
+            double x = 2e10 + ix * (3e11 - 2e10) / (nx2 - 1);
             for (int imu = 0; imu < nmu2; imu++) {
-                double mu = imu/(nmu2 - 1.);
+                double mu = imu / (nmu2 - 1.);
                 Point point;
                 point.x = x;
                 point.mu = mu;
-//                points.push(point);
+                //                points.push(point);
             }
         }
-        
+
         double muwidth2 = 0.1;
-//        int nmu2 = 6;
-//        int nx2 = 100;
+        //        int nmu2 = 6;
+        //        int nx2 = 100;
         for (int ix = 0; ix < nx2; ix++) {
-            double x = 2e10 + ix*(2.6e11 - 2e10)/(nx2-1);
-//                double mu0 = -0.018989311717356086 + 6.87667461054985e-13*x + 7.7264998850342525e-25*x*x - 2.069564731044878e-36*x*x*x;
-                double mu0 = 0.032913659749522636 - 2.9822328051812337e-13*x + 8.053722708617216e-24*x*x - 1.8763641134601787e-35*x*x*x;
-                double mui = mu0 - muwidth2;
-                double muf = mu0 + muwidth2;
+            double x = 2e10 + ix * (2.6e11 - 2e10) / (nx2 - 1);
+            //                double mu0 = -0.018989311717356086 + 6.87667461054985e-13*x + 7.7264998850342525e-25*x*x - 2.069564731044878e-36*x*x*x;
+            double mu0 = 0.032913659749522636 - 2.9822328051812337e-13 * x + 8.053722708617216e-24 * x * x - 1.8763641134601787e-35 * x * x*x;
+            double mui = mu0 - muwidth2;
+            double muf = mu0 + muwidth2;
             for (int imu = 0; imu < nmu2; imu++) {
-                double mu = mui + imu*(muf-mui)/(nmu2 - 1);
+                double mu = mui + imu * (muf - mui) / (nmu2 - 1);
                 Point point;
                 point.x = x;
                 point.mu = mu;
-//                points.push(point);
+                //                points.push(point);
             }
         }
         for (int ix = 0; ix < nx2; ix++) {
-            double x = 2e10 + ix*(2.6e11 - 2e10)/(nx2-1);
-//                double mu0 = 0.9464941207678484 - 2.5363733791190035e-13*x - 1.961773720477146e-23*x*x + 3.7097027455669513e-35*x*x*x;
-                double mu0 = 0.9681686436831983 - 8.658141185587507e-13*x - 1.101464387746557e-23*x*x + 1.1101188794879753e-35*x*x*x;
-                double mui = mu0 - muwidth2;
-                double muf = mu0 + muwidth2;
+            double x = 2e10 + ix * (2.6e11 - 2e10) / (nx2 - 1);
+            //                double mu0 = 0.9464941207678484 - 2.5363733791190035e-13*x - 1.961773720477146e-23*x*x + 3.7097027455669513e-35*x*x*x;
+            double mu0 = 0.9681686436831983 - 8.658141185587507e-13 * x - 1.101464387746557e-23 * x * x + 1.1101188794879753e-35 * x * x*x;
+            double mui = mu0 - muwidth2;
+            double muf = mu0 + muwidth2;
             for (int imu = 0; imu < nmu2; imu++) {
-                double mu = mui + imu*(muf-mui)/(nmu2 - 1);
+                double mu = mui + imu * (muf - mui) / (nmu2 - 1);
                 Point point;
                 point.x = x;
                 point.mu = mu;
-//                points.push(point);
+                //                points.push(point);
             }
         }
-        
-        
+
+
         for (int ix = 0; ix < 50; ix++) {
-            double x = 2e10 + ix*(2.6e11 - 2e10)/(50-1);
+            double x = 2e10 + ix * (2.6e11 - 2e10) / (50 - 1);
             for (int imu = 0; imu < 50; imu++) {
-                double mu = imu/(50.-1);
-//                points.push({x, mu});
+                double mu = imu / (50. - 1);
+                //                points.push({x, mu});
             }
         }
-        
-//        points.push({2.27878787879e11, 0.2667});
+
+        //        points.push({2.27878787879e11, 0.2667});
         int nW = 100;
         for (int i = 0; i < nW; i++) {
-            double Wi = 1e11;//4.7e10;//2.0e10;
-            double Wf = 3e11;//6e10;//1.5e11;
-            double W = Wi + i*(Wf - Wi)/(nW-1);
-            points.push({W, 0.3});
+            double Wi = 1e11; //4.7e10;//2.0e10;
+            double Wf = 3e11; //6e10;//1.5e11;
+            double W = Wi + i * (Wf - Wi) / (nW - 1);
+//            points.push({W, 0.3});
         }
-//        points.push({2e10,0.9});
+                points.push({2e10,0.9});
 
         /*{
                   double x1min = 2.05e10;
@@ -1493,11 +1372,11 @@ int main(int argc, char** argv) {
 
         vector<PointResults> pointRes;
 
-//        GroundStateProblem::setup();
+        //        GroundStateProblem::setup();
         thread_group threads;
         for (int i = 0; i < numthreads; i++) {
             //                        threads.emplace_back(phasepoints, std::ref(xi), theta, std::ref(points), std::ref(f0res), std::ref(E0res), std::ref(Ethres), std::ref(fsres), std::ref(progress));
-            threads.create_thread(bind(&phasepoints, i+1, boost::ref(xi), theta, boost::ref(points), boost::ref(pointRes), boost::ref(progress)));
+            threads.create_thread(bind(&phasepoints, i + 1, boost::ref(xi), theta, boost::ref(points), boost::ref(pointRes), boost::ref(progress)));
         }
         threads.join_all();
 
@@ -1558,14 +1437,14 @@ int main(int argc, char** argv) {
         //        printMath(os, "fn0", resi, fn0);
         printMath(os, "fmin", resi, fmin);
         //        printMath(os, "fmax", resi, fmax);
-                printMath(os, "f0", resi, f0);
-                printMath(os, "fth", resi, fth);
+        printMath(os, "f0", resi, f0);
+        printMath(os, "fth", resi, fth);
         //        printMath(os, "f2th", resi, f2th);
         printMath(os, "E0", resi, E0);
         printMath(os, "Eth", resi, Eth);
         //        printMath(os, "E2th", resi, E2th);
-                printMath(os, "status0", resi, status0);
-                printMath(os, "statusth", resi, statusth);
+        printMath(os, "status0", resi, status0);
+        printMath(os, "statusth", resi, statusth);
         //        printMath(os, "status2th", resi, status2th);
         //        printMath(os, "runtime0", resi, runtime0);
         //        printMath(os, "runtimeth", resi, runtimeth);
