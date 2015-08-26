@@ -18,8 +18,8 @@ using namespace std;
 
 using namespace casadi;
 
-const int L = 25;
-const int nmax = 7;
+const int L = 50;
+const int nmax = 5;
 const int dim = nmax + 1;
 
 template<class T>
