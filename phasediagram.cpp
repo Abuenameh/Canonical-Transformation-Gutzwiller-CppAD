@@ -257,7 +257,7 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
     options += "Numeric tol          1e-12\n";
     options += "Numeric acceptable_tol          1e-12\n";
     options += "Numeric point_perturbation_radius  0.\n";
-    options += "String linear_solver ma77\n";
+    options += "String linear_solver ma86\n";
     options += "Sparse true reverse\n";
     options += "String hessian_approximation limited-memory\n";
 
