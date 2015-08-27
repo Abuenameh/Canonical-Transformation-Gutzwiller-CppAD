@@ -259,7 +259,7 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
     options += "Numeric point_perturbation_radius  0.\n";
     options += "String linear_solver ma86\n";
     options += "Sparse true reverse\n";
-    options += "String hessian_approximation limited-memory\n";
+//    options += "String hessian_approximation limited-memory\n";
 
 //    lbfgsfloatval_t *lx = lbfgs_malloc(ndim);
 //    lbfgs_parameter_t param;
@@ -338,6 +338,18 @@ void phasepoints(int thread, Parameter& xi, double theta, queue<Point>& points, 
         prob.setParameters(U0, dU, J, point.mu / scale, 0);
 
         E_eval E0_eval(U0, dU, J, point.mu / scale, 0);
+//        CppAD::vector<AD<double>> X(ndim);
+//        for(int i = 0; i < ndim; i++) {
+//            X[i] = 1;
+//        }
+//        Independent(X);
+//        CppAD::vector<AD<double>> Y(1);
+//        Y[0] = GroundStateProblem::energy(X, J, U0, dU, point.mu, 0);
+//        ADFun<double> func(X, Y);
+//        using Ipopt::IpoptApplication;
+//        Ipopt::SmartPtr<IpoptApplication> app = new IpoptApplication();
+//        app->Initialize();
+//        sleep(1000000000);
 
         // place to return solution
         CppAD::ipopt::solve_result<CppAD::vector<double>> solution;
@@ -1253,10 +1265,10 @@ int main(int argc, char** argv) {
         }
 
         //        points.push({2.27878787879e11, 0.2667});
-        int nW = 100;
+        int nW = 24;//100;
         for (int i = 0; i < nW; i++) {
-            double Wi = 1e11; //4.7e10;//2.0e10;
-            double Wf = 3e11; //6e10;//1.5e11;
+            double Wi = 2.1e11; //4.7e10;//2.0e10;
+            double Wf = 2.3e11; //6e10;//1.5e11;
             double W = Wi + i * (Wf - Wi) / (nW - 1);
 //            points.push({W, 0.3});
         }

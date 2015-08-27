@@ -344,6 +344,7 @@ T GroundStateProblem::energy(CppAD::vector<T>& fin, vector<double>& J, double U0
         E += Ej1k1;
         E += Ej2k2;
     }
+//    E = 0;
 
     return E.real();
 }
